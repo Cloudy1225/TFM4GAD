@@ -1,0 +1,163 @@
+default:
+  # Number of labeled anomalies in the training set
+  n_anomalies: 20
+
+  # Feature transformation when loading dataset: no / l1 / l2 / sc / row
+  feat_trans: "no"
+
+  # Multi-feature augmentation config (optional):
+  # If enable=true, use augment_node_features() for combined augmentation
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"   # "sage" or "bwgnn"
+      num_layers: 2
+      agg: "mean"
+      sc: false
+    degree:
+      enable: true
+      log: true
+    pagerank:
+      enable: true
+      alpha: 0.85
+      max_iterations: 100
+      tol: 0.000001
+      log: true
+      cache_dir: "pagerank_cache"
+    laplacian_pe:
+      enable: true
+      k: 16
+      cache_dir: "lap_pe_cache"
+      approx_threshold: 100000
+      approx_method: "randomized_svd"
+
+  # Batch size for inference
+  batch_size: 2048
+
+# Dataset-specific overrides
+amazon:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+yelp:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 2
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+tfinance:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "sage"
+      num_layers: 2
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+tsocial:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 3
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+tolokers:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+elliptic:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+dgraphfin:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+reddit:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
+
+questions:
+  augmentation:
+    enable: true
+    neighbor:
+      enable: true
+      type: "bwgnn"
+      num_layers: 1
+    degree:
+      enable: true
+    pagerank:
+      enable: true
+    laplacian_pe:
+      enable: true
