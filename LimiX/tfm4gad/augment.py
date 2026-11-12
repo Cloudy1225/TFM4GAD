@@ -8,7 +8,7 @@ import scipy.sparse as sp
 import scipy.special
 import sympy
 import torch
-from scipy.sparse.linalg import lobpcg, LinearOperator
+from scipy.sparse.linalg import eigsh, lobpcg, LinearOperator
 from sklearn.utils.extmath import randomized_svd
 
 
@@ -221,7 +221,7 @@ def compute_pagerank(
 
 
 def get_laplacian_pe(g, k, cache_dir="./lap_pe_cache",
-                     approx_threshold=100_000, approx_method="randomized_svd") -> torch.Tensor:
+                     approx_threshold=100_000, approx_method="eigsh") -> torch.Tensor:
     """
     Compute or load Laplacian Position Embedding (LapPE) for graph `g`.
 
@@ -242,7 +242,8 @@ def get_laplacian_pe(g, k, cache_dir="./lap_pe_cache",
     approx_threshold : int
         Number of nodes above which approximate method will be used.
     approx_method : str
-        Approximation method to use: "randomized_svd" or "lobpcg".
+        Approximation method to use: "eigsh" (default), "randomized_svd" or "lobpcg".
+        "randomized_svd" is faster but inaccurate when the smallest eigenvalues of L are clustered.
 
     Returns
     -------
@@ -251,7 +252,10 @@ def get_laplacian_pe(g, k, cache_dir="./lap_pe_cache",
     """
 
     os.makedirs(cache_dir, exist_ok=True)
-    cache_path = os.path.join(cache_dir, f"{g.name}_lap_pe.pt")
+    num_nodes = g.num_nodes()
+    # Approximate PEs are cached per method, so a cache from another (or an older) solver is not reused
+    suffix = "" if num_nodes <= approx_threshold else f"_{approx_method}"
+    cache_path = os.path.join(cache_dir, f"{g.name}_lap_pe{suffix}.pt")
 
     # Try to load from cache
     cached_k = -1
@@ -266,8 +270,6 @@ def get_laplacian_pe(g, k, cache_dir="./lap_pe_cache",
         else:
             print(f"[Cache] Found LapPE cache k={cached_k} but need k={k}, recomputing...")
 
-    num_nodes = g.num_nodes()
-
     # Get adjacency matrix and normalized Laplacian in sparse format
     A = g.adj_external(scipy_fmt="csr")  # adjacency in CSR
     deg_inv_sqrt = 1.0 / np.sqrt(np.clip(g.in_degrees().numpy(), 1, None))
@@ -280,10 +282,17 @@ def get_laplacian_pe(g, k, cache_dir="./lap_pe_cache",
         start_time = time.time()
         print(f"[Approx] Using {approx_method} for LapPE (n={num_nodes} > threshold={approx_threshold}, k={k})")
 
+        # spec(L) is in [0, 2], so the top eigenvectors of M = 2I - L are the smallest eigenvectors of L
+        M = sp.csr_matrix(2 * sp.eye(num_nodes) - L) if approx_method != "lobpcg" else None
         if approx_method == "randomized_svd":
-            # Randomized SVD for smallest eigenvectors of Laplacian
-            U, Sigma, VT = randomized_svd(L, n_components=k+1, random_state=0)
+            # Randomized SVD of M for smallest eigenvectors of Laplacian
+            U, Sigma, VT = randomized_svd(M, n_components=k+1, random_state=0)
             PE_vecs = U[:, 1:k+1]  # skip the trivial eigenvector
+        elif approx_method == "eigsh":
+            # Lanczos on M for smallest eigenvectors of Laplacian (fixed v0 for reproducibility)
+            v0 = np.random.RandomState(0).rand(num_nodes)
+            eigvals, eigvecs = eigsh(M, k=k+1, which="LA", tol=1e-4, v0=v0)
+            PE_vecs = eigvecs[:, np.argsort(-eigvals)][:, 1:k+1]  # skip the trivial eigenvector
         elif approx_method == "lobpcg":
             # Define LinearOperator for Laplacian to avoid dense matrix
             def matvec(x):
@@ -376,7 +385,7 @@ def augment_node_features(
                 "k": 16,
                 "cache_dir": "./lap_pe_cache",
                 "approx_threshold": 100_000,
-                "approx_method": "randomized_svd"
+                "approx_method": "eigsh"
             }
         }
 
@@ -438,7 +447,7 @@ def augment_node_features(
             k=lap_conf.get("k", 16),
             cache_dir=lap_conf.get("cache_dir", "./lap_pe_cache"),
             approx_threshold=lap_conf.get("approx_threshold", 100_000),
-            approx_method=lap_conf.get("approx_method", "randomized_svd")
+            approx_method=lap_conf.get("approx_method", "eigsh")
         )
         features.append(lap_feat)
 

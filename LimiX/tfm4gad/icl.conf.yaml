@@ -30,7 +30,7 @@ default:
       k: 16
       cache_dir: "lap_pe_cache"
       approx_threshold: 100000
-      approx_method: "randomized_svd"
+      approx_method: "eigsh"
 
   # Batch size for inference
   batch_size: 2048
